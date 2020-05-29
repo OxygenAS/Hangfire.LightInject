@@ -1,9 +1,13 @@
 ﻿using LightInject;
 using System;
+using System.IO;
 using System.Linq;
+using System.Web;
 
 namespace Hangfire.LightInject
 {
+    //https://www.umbrajobs.com/blog/posts/2020/january/umbraco-8-scheduled-tasks-with-hangfire-dependency-injection/
+
     public class LightInjectJobActivator : JobActivator
     {
         private readonly ServiceContainer _container;
@@ -20,6 +24,14 @@ namespace Hangfire.LightInject
 
         public override object ActivateJob(Type jobType)
         {
+            // IMPORTANT: HACK to create fake http context for job to allow the LightInject PerWebRequestScopeManager to work correctly when running in background jobs
+            // Umbraco is hardcoded to using MixedLightInjectScopeManagerProvider so its really really hard to get around so this hack is the easiest way to handle this.
+            if (HttpContext.Current == null)
+            {
+                HttpContext.Current = new HttpContext(new HttpRequest("PerWebRequestScopeManager", "https://localhost/PerWebRequestScopeManager", string.Empty),
+                    new HttpResponse(new StringWriter()));
+            }
+
             // this will fail if you do self referencing job queues on a class with an interface:
             //  BackgroundJob.Enqueue(() => this.SendSms(message)); 
             var instance = _container.TryGetInstance(jobType);
@@ -34,6 +46,14 @@ namespace Hangfire.LightInject
 
         public override JobActivatorScope BeginScope()
         {
+            // IMPORTANT: HACK to create fake http context for job to allow the LightInject PerWebRequestScopeManager to work correctly when running in background jobs
+            // Umbraco is hardcoded to using MixedLightInjectScopeManagerProvider so its really really hard to get around so this hack is the easiest way to handle this.
+            if (HttpContext.Current == null)
+            {
+                HttpContext.Current = new HttpContext(new HttpRequest("PerWebRequestScopeManager", "https://localhost/PerWebRequestScopeManager", string.Empty),
+                    new HttpResponse(new StringWriter()));
+            }
+
             return new LightInjecterScope(_container);
         }
 
@@ -46,13 +66,20 @@ namespace Hangfire.LightInject
 
         public LightInjecterScope(ServiceContainer container)
         {
+
             _container = container;
 
             _scope = _container.BeginScope();
         }
 
         public override object Resolve(Type jobType)
-        {
+        { // IMPORTANT: HACK to create fake http context for job to allow the LightInject PerWebRequestScopeManager to work correctly when running in background jobs
+          // Umbraco is hardcoded to using MixedLightInjectScopeManagerProvider so its really really hard to get around so this hack is the easiest way to handle this.
+            if (HttpContext.Current == null)
+            {
+                HttpContext.Current = new HttpContext(new HttpRequest("PerWebRequestScopeManager", "https://localhost/PerWebRequestScopeManager", string.Empty),
+                    new HttpResponse(new StringWriter()));
+            }
 
             var instance = _container.TryGetInstance(jobType);
 
@@ -66,6 +93,14 @@ namespace Hangfire.LightInject
 
         public override void DisposeScope()
         {
+            // IMPORTANT: HACK to create fake http context for job to allow the LightInject PerWebRequestScopeManager to work correctly when running in background jobs
+            // Umbraco is hardcoded to using MixedLightInjectScopeManagerProvider so its really really hard to get around so this hack is the easiest way to handle this.
+            if (HttpContext.Current == null)
+            {
+                HttpContext.Current = new HttpContext(new HttpRequest("PerWebRequestScopeManager", "https://localhost/PerWebRequestScopeManager", string.Empty),
+                    new HttpResponse(new StringWriter()));
+            }
+
             _scope?.Dispose();
         }
     }
